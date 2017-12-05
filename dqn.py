@@ -12,9 +12,9 @@ class DQNModel(object):
 
     def initialize(self, opt):
         self.gpu_ids = opt.gpu_ids
-        self.board_width = opt.board_width
+        self.board_width = opt.board_size
         self.units = opt.units
-        self.is_train = opt.is_train()
+        self.is_train = opt.is_train
         self.save_dir = opt.save_dir
         self.batch_size = opt.batch_size
         self.learn_Q = define_dqn(self.board_width, self.units)
@@ -32,7 +32,7 @@ class DQNModel(object):
         q_s = self.learn_Q.forward(state)
         return q_s
 
-    def forward_target(self, state):d
+    def forward_target(self, state):
         q_s = self.target_Q.forward(state)
         return q_s
 
@@ -68,12 +68,11 @@ class DQNModel(object):
         for i, done in enumerate(done_list):
             if not done:
                 self.non_final_idx.append(i)
-                non_final_next_state.append(next_state_tuple(i))
-        next_state = torch.from_numpy(np.expand_dims(np.stack(non_final_next_state , axis=0), axis=1))
+                non_final_next_state.append(next_state_tuple[i])
+        next_state = torch.from_numpy(np.expand_dims(np.stack(non_final_next_state, axis=0), axis=1))
         if use_gpu:
             next_state = next_state.cuda()
         self.next_state = Variable(next_state, volatile=True)
-
 
     def backward(self):
         q_sa = self.forward_learn(self.state).gather(1, self.action)
@@ -94,15 +93,18 @@ class DQNModel(object):
         self.backward()
         self.optimizer.step()
 
-    def choose_action(self, state):
+    def choose_action(self, state, valid_actions):
         state = np.expand_dims(np.expand_dims(state, axis=0), axis=0)
-        state = Variable(state, volatile=True)
-        if len(self.gpu_ids)>0:
-            q_s = self.forward_learn(state).data.cpu().numpy()
+        state = Variable(torch.from_numpy(state), volatile=True)
+        if len(self.gpu_ids) > 0:
+            q_s = self.forward_learn(state).data.cpu().numpy().reshape(-1)
         else:
-            q_s = self.forward_learn(state).data.numpy()
-        best_action = np.argmax(q_s, axis=1)[0]
-        return best_action
+            q_s = self.forward_learn(state).data.numpy().reshape(-1)
+        sorted_actions = np.argsort(q_s, axis=0).tolist()[::-1]
+        for action in sorted_actions:
+            if action in valid_actions:
+                return action
+        return -1
 
     def update_target(self):
         self.target_Q.load_state_dict(self.learn_Q.state_dict())

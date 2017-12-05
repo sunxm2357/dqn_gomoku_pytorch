@@ -39,14 +39,14 @@ class DQN_FC(nn.Module):
         layer = [self.linear1, self.lrelu1]
         for i in range(layers):
             if i == 0:
-                layer.append(nn.linear(in_feature, units))
+                layer.append(nn.Linear(in_feature, units))
             else:
-                layer.append(nn.linear(units, units))
+                layer.append(nn.Linear(units, units))
             layer.append(nn.LeakyReLU(negative_slope=alpha))
             # torch.nn.Dropout(p=0.5, inplace=False)
             layer.append(nn.Dropout(p=0.2))
 
-        layer.append(nn.linear(units, in_feature))
+        layer.append(nn.Linear(units, in_feature))
 
         self.q_a = nn.Sequential(*layer)
 

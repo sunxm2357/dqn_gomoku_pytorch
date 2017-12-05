@@ -6,6 +6,9 @@ import random
 import gym_gomoku
 from collections import namedtuple
 from itertools import count
+from tensorboardX import SummaryWriter
+from options import *
+import pdb
 
 Transition = namedtuple('Transition', ('state', "action", "next_state", "reward", "done"))
 
@@ -44,36 +47,66 @@ def select_action(env, epochs_done, EPS, model):
     state = np.array(env.state.board.board_state)
     r = random.random()
     eps = EPS.get(epochs_done)
+    valid_action = env.action_space.valid_spaces
     if r < eps:
         # choose random
         return env.action_space.sample() # int
     else:
-        best_action = model.choose_action(state) # int
-        if not best_action in env.action_space.valid_spaces:
-            best_action = env.action_space.sample()
-        return best_action
+        best_action = model.choose_action(state, valid_action) # int
+        if best_action != -1:
+            return best_action
+        else:
+            raise ValueError('No valid action')
+
+
+def visualize(episode_duration, episode_returns, writer):
+    # calculate the average
+    # durations_t = torch.FloatTensor(episode_duration)
+    if len(episode_duration) >= 100:
+        last = episode_duration[-100:]
+        mean = sum(last) / float(len(last))
+        last_returns = episode_returns[-100:]
+        mean_return = sum(last_returns) / float(len(last_returns))
+    else:
+        mean = sum(episode_duration) / float(len(episode_duration))
+        mean_return = sum(episode_returns) / float(len(episode_returns))
+
+    # print on the screen
+    print('Episode: %d, Duration: %d, Avg_Duration: %03f, Reward: %d, Avg_Reward: %03f' %
+          (len(episode_duration), episode_duration[-1], mean, episode_returns[-1], mean_return))
+
+    # add to writer
+    writer.add_scalar('Current_Duration', episode_duration[-1], len(episode_duration))
+    writer.add_scalar('Avg_Duration_over_last_100_games', mean, len(episode_duration))
+    writer.add_scalar('Current_Reward', episode_returns[-1], len(episode_returns))
+    writer.add_scalar('Avg_Duration_over_last_100_games', mean_return, len(episode_returns))
+
 
 def main():
-    # TODO, def opt
-    opt = None
+    opt = TrainOptions().parse()
     model = DQNModel()
     model.initialize(opt)
-    EPS = EpsSchedule(opt.eps_start, opt.eps_end, opt.num_episodes)
+    EPS = EpsSchedule(opt.eps_start, opt.eps_end, opt.num_episodes) # epsilon scheduler
     memory = ReplayMemory(opt.capacity)
+    writer = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
 
     env = gym.make('Gomoku%dx%d-v0'%(opt.board_size, opt.board_size))
     env.reset()
     num_updates = 0
+    episode_duration = []
+    episode_returns = []
     for i_episode in range(model.start_episode, opt.num_episodes):
         env.reset()
         current_state = np.array(env.state.board.board_state)
+        returns = 0
         for t in count():
             # generate the samples
             action = select_action(env, i_episode, EPS, model)
             next_state, reward, done, _ = env.step(action)
+            returns += reward
             memory.push(current_state, action, next_state, reward, done)
             current_state = next_state
-
+            pdb.set_trace()
             # train the model
             if len(memory) < opt.batch_size:
                 continue
@@ -86,7 +119,13 @@ def main():
                 if num_updates % opt.target_update_freq == 0:
                     model.update_target()
 
-                # TODO: add visual
+            if done:
+                episode_duration.append(t+1)
+                episode_returns.append(returns)
+                visualize(episode_duration, episode_returns, writer)
+                if i_episode % opt.save_freq == 0:
+                    model.save(i_episode, i_episode)
+                    model.save('latest', i_episode)
 
 
 if __name__ == "__main__":
