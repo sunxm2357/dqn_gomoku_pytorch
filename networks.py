@@ -5,6 +5,7 @@ from math import floor
 from torch.nn import init
 from torch.autograd import Variable
 import torch.nn.functional as F
+import pdb
 
 ################## Functions #########################
 def define_dqn(board_width, units, alpha=0.1, type='fc', layers=2, gpu_ids=[]):
@@ -65,20 +66,21 @@ class DQN_CONV(nn.Module):
         super(DQN_CONV, self).__init__()
         self.gpu_ids = gpu_ids
 
-        self.conv1 = nn.Conv2d(1, units, kernel_size=5, stride=2)
-        w = floor((width - 1) / 2 + 1)
+        self.conv1 = nn.Conv2d(1, units, kernel_size=5, stride=2, padding=2)
+        w = floor((width - 1) / 2. + 1)
         self.bn1 = nn.BatchNorm2d(units)
         self.relu1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(units, 2*units, kernel_size=5, stride=2)
-        w = floor((w - 1) / 2 + 1)
+        self.conv2 = nn.Conv2d(units, 2*units, kernel_size=5, stride=2, padding=2)
+        w = floor((w - 1) / 2. + 1)
         self.bn2 = nn.BatchNorm2d(2*units)
         self.relu2 = nn.ReLU()
-        self.conv3 = nn.Conv2d(2*units, 2*units, kernel_size=5, stride=2)
-        w = floor((w - 1) / 2 + 1)
+        self.conv3 = nn.Conv2d(2*units, 2*units, kernel_size=5, stride=2, padding=2)
+        w = floor((w - 1) / 2. + 1)
         self.bn3 = nn.BatchNorm2d(2*units)
         self.relu3 = nn.ReLU()
         self.linear = nn.Linear(w**2 * 2*units, width**2)
         layers = [self.conv1, self.bn1, self.relu1, self.conv2, self.bn2, self.relu2, self.conv3, self.bn3, self.relu3]
+        # layers = [self.conv1, self.bn1, self.relu1]
         self.cnns = nn.Sequential(*layers)
 
     def forward(self, input):
@@ -88,7 +90,9 @@ class DQN_CONV(nn.Module):
             q_action = nn.parallel.data_parallel(self.linear, x, self.gpu_ids)
             return q_action
         else:
+            # pdb.set_trace()
             x = self.cnns(input)
+            # pdb.set_trace()
             x = x.view(x.size(0), -1)
             q_action = self.linear(x)
             return q_action

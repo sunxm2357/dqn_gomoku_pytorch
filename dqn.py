@@ -5,6 +5,7 @@ from torch.autograd import Variable
 from networks import *
 from collections import namedtuple
 import os
+import pdb
 
 class DQNModel(object):
     def name(self):
@@ -17,10 +18,10 @@ class DQNModel(object):
         self.is_train = opt.is_train
         self.save_dir = opt.save_dir
         self.batch_size = opt.batch_size
-        self.learn_Q = define_dqn(self.board_width, self.units)
+        self.learn_Q = define_dqn(self.board_width, self.units, type=opt.type)
         if self.is_train:
             self.start_episode = 1
-            self.target_Q = define_dqn(self.board_width, self.units)
+            self.target_Q = define_dqn(self.board_width, self.units, type=opt.type)
             self.update_target()
             self.MSELoss = torch.nn.MSELoss()
             self.optimizer = torch.optim.Adam(self.learn_Q.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -45,19 +46,28 @@ class DQNModel(object):
         done_list = list(batch.done)
 
         # set up state tensor
-        state = torch.from_numpy(np.expand_dims(np.stack(state_tuple, axis=0), axis=1))
+        state = torch.from_numpy(np.expand_dims(np.stack(state_tuple, axis=0), axis=1)).float()
         if use_gpu:
             state = state.cuda()
         self.state = Variable(state)
 
         # set up action tensor
-        action = torch.from_numpy(np.stack(action_tuple, axis=0))
+        # action = torch.from_numpy(np.stack(action_tuple, axis=0))
+        # if use_gpu:
+        #     action = action.cuda()
+        # self.action = Variable(action)
+
+        mask = np.zeros((self.batch_size, self.board_width ** 2), dtype=int)
+        action = np.stack(action_tuple, axis=0).reshape(-1).tolist()
+        for idx, action_idx in enumerate(action):
+            mask[idx][action_idx] = 1
+        mask = torch.from_numpy(mask).byte()
         if use_gpu:
-            action = action.cuda()
-        self.action = Variable(action)
+            mask = mask.cuda()
+        self.mask = Variable(mask)
 
         # set up reward tensor
-        reward = torch.from_numpy(np.stack(reward_tuple, axis=0))
+        reward = torch.from_numpy(np.stack(reward_tuple, axis=0)).float()
         if use_gpu:
             reward = reward.cuda()
         self.reward = Variable(reward)
@@ -69,14 +79,17 @@ class DQNModel(object):
             if not done:
                 self.non_final_idx.append(i)
                 non_final_next_state.append(next_state_tuple[i])
-        next_state = torch.from_numpy(np.expand_dims(np.stack(non_final_next_state, axis=0), axis=1))
+        next_state = torch.from_numpy(np.expand_dims(np.stack(non_final_next_state, axis=0), axis=1)).float()
         if use_gpu:
             next_state = next_state.cuda()
         self.next_state = Variable(next_state, volatile=True)
+        # self.next_state = Variable(next_state)
 
     def backward(self):
-        q_sa = self.forward_learn(self.state).gather(1, self.action)
-        q_nsa = self.forward_target(self.next_state).max(1)
+        # pdb.set_trace()
+        # q_sa = self.forward_learn(self.state).gather(1, self.action)
+        q_sa = self.forward_learn(self.state).masked_select(self.mask)
+        (q_nsa, _) = self.forward_target(self.next_state).max(1)
         if len(self.gpu_ids) > 0:
             next_state_values = Variable(torch.zeros(self.batch_size).float().cuda())
         else:
@@ -85,7 +98,8 @@ class DQNModel(object):
             next_state_values[idx] = q_nsa[i]
 
         expected_state_action_values = next_state_values + self.reward
-        self.loss = self.MSELoss(q_sa, expected_state_action_values)
+        target = Variable(expected_state_action_values.data.clone())
+        self.loss = self.MSELoss(q_sa, target)
         self.loss.backward()
 
     def optimize(self):
@@ -95,7 +109,8 @@ class DQNModel(object):
 
     def choose_action(self, state, valid_actions):
         state = np.expand_dims(np.expand_dims(state, axis=0), axis=0)
-        state = Variable(torch.from_numpy(state), volatile=True)
+        # pdb.set_trace()
+        state = Variable(torch.from_numpy(state).float(), volatile=True)
         if len(self.gpu_ids) > 0:
             q_s = self.forward_learn(state).data.cpu().numpy().reshape(-1)
         else:

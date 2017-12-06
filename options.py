@@ -32,6 +32,7 @@ class BaseOptions():
         self.parser.add_argument('--units', type=int, default=512, help="the units for nn, 512(default) for fc, 16 for conv")
         self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
         self.parser.add_argument('--tensorboard_dir', type=str, default='./tb', help='models are saved here')
+        self.parser.add_argument('--type', type=str, default='fc', help = 'what kind of layers [conv|fc]')
         # self.parser.add_argument('--model', type=str, default='dqn', help='the model to run')
 
         # TODO: add or delete
@@ -92,7 +93,7 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument("--lr", type=float, dest="lr", default=0.00025, help="Base Learning Rate")
         self.parser.add_argument("--num_episodes", type=int, default=100000, help="Number of iterations")
         self.parser.add_argument('--target_update_freq', type=int, default=500, help='frequency of updating the target network')
-        self.parser.add_argument('--save_freq', type=int, default=10, help='frequency of saving checkpoints at the end of epochs')
+        self.parser.add_argument('--save_freq', type=int, default=500, help='frequency of saving checkpoints at the end of epochs')
         self.parser.add_argument('--continue_train', action='store_true', help='continue training: load the latest model')
         self.parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
         self.parser.add_argument('--which_epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
@@ -100,7 +101,6 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--eps_start', type=float, default=0.9, help='the beginning of epsilon, 0.9 by default')
         self.parser.add_argument('--eps_end', type=float, default=0.05, help='the end of epsilon, 0.05 by default')
         self.parser.add_argument('--capacity', type=int, default=5000, help='the capacity of replay buffer')
-
 
         self.is_train = True
 

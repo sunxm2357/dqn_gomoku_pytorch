@@ -99,17 +99,28 @@ def main():
         env.reset()
         current_state = np.array(env.state.board.board_state)
         returns = 0
-        for t in count():
+        t = 0
+        while True:
+            # print(t)
             # generate the samples
             action = select_action(env, i_episode, EPS, model)
             next_state, reward, done, _ = env.step(action)
-            returns += reward
+            returns += reward * 10
             memory.push(current_state, action, next_state, reward, done)
             current_state = next_state
-            pdb.set_trace()
+            # pdb.set_trace()
             # train the model
+            t = t + 1
             if len(memory) < opt.batch_size:
-                continue
+                if done:
+                    episode_duration.append(t)
+                    episode_returns.append(returns)
+                    visualize(episode_duration, episode_returns, writer)
+                    if i_episode % opt.save_freq == 0:
+                        model.save(i_episode, i_episode)
+                        model.save('latest', i_episode)
+                else:
+                    continue
             else:
                 transitions = memory.sample(opt.batch_size)
                 batch = Transition(*zip(*transitions))
@@ -118,14 +129,14 @@ def main():
                 num_updates += 1
                 if num_updates % opt.target_update_freq == 0:
                     model.update_target()
-
             if done:
-                episode_duration.append(t+1)
+                episode_duration.append(t)
                 episode_returns.append(returns)
                 visualize(episode_duration, episode_returns, writer)
                 if i_episode % opt.save_freq == 0:
                     model.save(i_episode, i_episode)
                     model.save('latest', i_episode)
+                break
 
 
 if __name__ == "__main__":
