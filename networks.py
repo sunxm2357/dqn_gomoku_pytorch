@@ -78,7 +78,7 @@ class DQN_CONV(nn.Module):
         w = floor((w - 1) / 2. + 1)
         self.bn3 = nn.BatchNorm2d(2*units)
         self.relu3 = nn.ReLU()
-        self.linear = nn.Linear(w**2 * 2*units, width**2)
+        self.linear = nn.Linear(int(w)**2 * 2*units, width**2)
         layers = [self.conv1, self.bn1, self.relu1, self.conv2, self.bn2, self.relu2, self.conv3, self.bn3, self.relu3]
         # layers = [self.conv1, self.bn1, self.relu1]
         self.cnns = nn.Sequential(*layers)
