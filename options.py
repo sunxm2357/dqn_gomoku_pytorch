@@ -69,13 +69,6 @@ class BaseOptions():
         tb_dir = os.path.join(self.opt.tensorboard_dir, self.opt.name)
         makedir(tb_dir)
         self.opt.save_dir = expr_dir
-        # if not self.is_train:
-        #     self.opt.serial_batches = True
-        #     self.opt.video_list = 'test_data_list.txt'
-        #     self.opt.quant_dir = os.path.join(self.opt.result_dir, 'quantitative', self.opt.data, self.opt.name + '_' + self.opt.which_epoch)
-        #     makedir(self.opt.quant_dir)
-        #     self.opt.save_dir = os.path.join(self.opt.result_dir, 'images', self.opt.data, self.opt.name + '_' + self.opt.which_epoch)
-        #     makedir(self.opt.save_dir)
 
         file_name = os.path.join(expr_dir, 'opt.txt')
         with open(file_name, 'wt') as opt_file:
@@ -83,6 +76,9 @@ class BaseOptions():
             for k, v in sorted(args.items()):
                 opt_file.write('%s: %s\n' % (str(k), str(v)))
             opt_file.write('-------------- End ----------------\n')
+
+        self.opt.val_file = os.path.join(expr_dir, 'val.txt')
+
         return self.opt
 
 
@@ -91,16 +87,18 @@ class TrainOptions(BaseOptions):
         BaseOptions.initialize(self)
         self.parser.add_argument("--batch_size", type=int, dest="batch_size", default=40, help="Mini-batch size")
         self.parser.add_argument("--lr", type=float, dest="lr", default=0.00025, help="Base Learning Rate")
-        self.parser.add_argument("--num_episodes", type=int, default=100000, help="Number of iterations")
+        self.parser.add_argument("--num_episodes", type=int, default=1000000, help="Number of iterations")
         self.parser.add_argument('--target_update_freq', type=int, default=500, help='frequency of updating the target network')
         self.parser.add_argument('--save_freq', type=int, default=500, help='frequency of saving checkpoints at the end of epochs')
+        self.parser.add_argument('--val_freq', type=int, default=2000, help='frequency of validation')
         self.parser.add_argument('--continue_train', action='store_true', help='continue training: load the latest model')
         self.parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
         self.parser.add_argument('--which_epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
         self.parser.add_argument('--epoch_count', type=int, default=1, help='the starting epoch count, we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>, ...')
         self.parser.add_argument('--eps_start', type=float, default=0.9, help='the beginning of epsilon, 0.9 by default')
         self.parser.add_argument('--eps_end', type=float, default=0.05, help='the end of epsilon, 0.05 by default')
-        self.parser.add_argument('--capacity', type=int, default=5000, help='the capacity of replay buffer')
+        self.parser.add_argument('--capacity', type=int, default=100000, help='the capacity of replay buffer')
+        self.parser.add_argument('--begin_length', type=int, default=1000, help='begin training when the buffer increases to this length')
 
         self.is_train = True
 

@@ -99,6 +99,8 @@ class DQNModel(object):
 
         expected_state_action_values = next_state_values + self.reward
         target = Variable(expected_state_action_values.data.clone())
+        if len(self.gpu_ids) > 0:
+            target = target.cuda()
         self.loss = self.MSELoss(q_sa, target)
         self.loss.backward()
 

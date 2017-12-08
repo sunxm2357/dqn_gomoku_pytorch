@@ -8,6 +8,7 @@ from collections import namedtuple
 from itertools import count
 from tensorboardX import SummaryWriter
 from options import *
+from test import *
 import pdb
 
 Transition = namedtuple('Transition', ('state', "action", "next_state", "reward", "done"))
@@ -79,7 +80,7 @@ def visualize(episode_duration, episode_returns, writer):
     writer.add_scalar('Current_Duration', episode_duration[-1], len(episode_duration))
     writer.add_scalar('Avg_Duration_over_last_100_games', mean, len(episode_duration))
     writer.add_scalar('Current_Reward', episode_returns[-1], len(episode_returns))
-    writer.add_scalar('Avg_Duration_over_last_100_games', mean_return, len(episode_returns))
+    writer.add_scalar('Avg_Reward_over_last_100_games', mean_return, len(episode_returns))
 
 
 def main():
@@ -111,7 +112,7 @@ def main():
             # pdb.set_trace()
             # train the model
             t = t + 1
-            if len(memory) < opt.batch_size:
+            if len(memory) < opt.begin_length:
                 if done:
                     episode_duration.append(t)
                     episode_returns.append(returns)
@@ -122,6 +123,7 @@ def main():
                 else:
                     continue
             else:
+                print(len(memory))
                 transitions = memory.sample(opt.batch_size)
                 batch = Transition(*zip(*transitions))
                 model.set_input(batch)
@@ -136,6 +138,14 @@ def main():
                 if i_episode % opt.save_freq == 0:
                     model.save(i_episode, i_episode)
                     model.save('latest', i_episode)
+                    for name, param in model.learn_Q.named_parameters():
+                        writer.add_histogram('learn_'+name, param.clone().cpu().data.numpy(), i_episode)
+                    for name, param in model.target_Q.named_parameters():
+                        writer.add_histogram('target_'+name, param.clone().cpu().data.numpy(), i_episode)
+                if i_episode % opt.val_freq == 0:
+                    play_length, val_reward = validation(model, opt, i_episode)
+                    writer.add_scalar('val_play_length', play_length, len(episode_duration))
+                    writer.add_scalar('val_reward', val_reward, len(episode_duration))
                 break
 
 
